@@ -345,17 +345,81 @@ export function annualSavingInr(profile: WaterProfile): number {
   return Math.max(0, baseline - optimizedSpend);
 }
 
-/** Water-chemistry-specific routine additions, ordered by priority. */
+/**
+ * Water-chemistry-specific routine additions, ordered by priority.
+ *
+ * Four tiers keyed off the locality's estimated TDS:
+ *   very hard (>=700 ppm), hard (450-699), moderate (250-449), soft (<250).
+ * Recommendations get progressively more aggressive (and more critical) as the
+ * mineral load rises, and address hair AND skin separately.
+ */
 export function waterRoutineSteps(profile: WaterProfile): RoutineStep[] {
   const steps: RoutineStep[] = [];
   const tds = estimatedTds(profile);
+  const here = `${profile.area} (~${tds} ppm TDS)`;
 
-  if (tds >= 450) {
+  if (tds >= 700) {
+    // Very hard — full mineral-defence protocol.
+    steps.push({
+      id: "water-shower-filter",
+      time: "WASH",
+      title: "Install a KDF + activated-carbon shower filter (priority #1)",
+      reason: `${here} is very hard. A shower filter removes up to 90% of chlorine and conditions calcium/magnesium at the source — clinically linked to ~78% less hair fall and +11% scalp hydration. This single fix does the most work.`,
+      category: "shower filter",
+      priority: "critical",
+    });
+    steps.push({
+      id: "water-chelating-shampoo",
+      time: "WASH",
+      title: "Chelating / clarifying shampoo 1-2x per week",
+      reason:
+        "Chelating agents (EDTA, sodium gluconate, gluconolactone) bind and lift the calcium film that locks hair cuticles open. Use weekly to reverse existing calcification, then maintain.",
+      category: "chelating shampoo",
+      priority: "critical",
+    });
+    steps.push({
+      id: "water-final-rinse",
+      time: "WASH",
+      title: "Final rinse with RO / filtered water",
+      reason:
+        "A mineral-free last rinse stops fresh calcification settling on just-washed hair and skin — cheap insurance until the filter is in.",
+      category: "filtered water",
+      priority: "critical",
+    });
+    steps.push({
+      id: "water-leavein",
+      time: "WASH",
+      title: "Seal with a leave-in conditioner",
+      reason:
+        "Very hard water keeps cuticles raised and porous. A leave-in smooths and re-seals the shaft, cutting frizz and breakage.",
+      category: "leave-in conditioner",
+      priority: "recommended",
+    });
+    steps.push({
+      id: "water-barrier-cream",
+      time: "PM",
+      title: "Rich ceramide barrier-repair cream at night",
+      reason:
+        "Hard-water soap scum strips stratum-corneum lipids and raises water loss (TEWL). Ceramide + fatty-acid creams rebuild the barrier overnight.",
+      category: "barrier repair cream",
+      priority: "recommended",
+    });
+    steps.push({
+      id: "water-low-ph-cleanser",
+      time: "AM",
+      title: "Switch to a low-pH, sulfate-free cleanser",
+      reason:
+        "Minerals make traditional surfactants deposit scum. A low-pH, non-stripping cleanser lathers cleaner and protects the acid mantle.",
+      category: "gentle cleanser",
+      priority: "optional",
+    });
+  } else if (tds >= 450) {
+    // Hard — core protocol.
     steps.push({
       id: "water-shower-filter",
       time: "WASH",
       title: "Install a KDF + activated-carbon shower filter",
-      reason: `Your area (${profile.area}) measures ~${tds} ppm TDS. A shower filter removes up to 90% of chlorine and conditions hard-water minerals, clinically linked to ~78% less hair fall and +11% scalp hydration.`,
+      reason: `${here} is hard. A shower filter removes up to 90% of chlorine and conditions hard-water minerals — clinically linked to ~78% less hair fall and +11% scalp hydration.`,
       category: "shower filter",
       priority: "critical",
     });
@@ -387,20 +451,31 @@ export function waterRoutineSteps(profile: WaterProfile): RoutineStep[] {
       priority: "recommended",
     });
   } else if (tds >= 250) {
+    // Moderate — light maintenance.
     steps.push({
       id: "water-clarify-light",
       time: "WASH",
       title: "Add a gentle clarifying wash every 1-2 weeks",
-      reason: `${profile.area} is moderate (~${tds} ppm). Occasional clarifying prevents product + mineral buildup and restores shine.`,
+      reason: `${here} is moderate. Occasional clarifying prevents product + mineral buildup and restores shine without over-stripping.`,
       category: "clarifying shampoo",
       priority: "recommended",
     });
+    steps.push({
+      id: "water-hydrate",
+      time: "AM",
+      title: "Keep a lightweight daily moisturiser",
+      reason:
+        "Moderate mineral load causes mild barrier dullness; daily hydration keeps skin smooth without heavy occlusives.",
+      category: "moisturiser",
+      priority: "optional",
+    });
   } else {
+    // Soft / low.
     steps.push({
       id: "water-maintenance",
       time: "WASH",
-      title: "Standard care — your water is gentle",
-      reason: `${profile.area} runs low TDS (~${tds} ppm). Focus on barrier maintenance; aggressive clarifying is unnecessary.`,
+      title: "Your water is gentle — keep it simple",
+      reason: `${here} runs low TDS. Avoid over-clarifying (it can strip soft-water hair); focus on routine barrier maintenance.`,
       category: "maintenance",
       priority: "optional",
     });

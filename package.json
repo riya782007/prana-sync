@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Prana Sync - hyperlocal, brand-agnostic skin/hair/gut health coach for urban India",
+  "engines": {
+    "node": ">=18.18.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

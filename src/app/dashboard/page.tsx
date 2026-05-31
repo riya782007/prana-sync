@@ -345,6 +345,11 @@ function SkinScan({ userId }: { userId: string | null }) {
                 simulated
               </span>
             )}
+            {result.score.lowConfidence && (
+              <span className="mb-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+                low confidence — retake photo
+              </span>
+            )}
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {result.score.parameters.map((p) => (
