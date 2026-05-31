@@ -58,8 +58,8 @@ function priorityColor(p: string) {
 }
 
 export default function Dashboard() {
-  const [area, setArea] = useState("Whitefield");
-  const [city, setCity] = useState("Bangalore");
+  const [area, setArea] = useState("Dwarka");
+  const [city, setCity] = useState("Delhi");
   const [concerns, setConcerns] = useState<Concern[]>(["hair_fall", "dryness"]);
   const [routine, setRoutine] = useState<RoutineResult | null>(null);
   const [routineLoading, setRoutineLoading] = useState(false);
@@ -99,8 +99,10 @@ export default function Dashboard() {
           1 · Calibrate your environment
         </h2>
         <p className="mt-1 text-sm text-prana-100/70">
-          Pick a Bangalore locality (try Electronic City, Sarjapur, Koramangala,
-          Indiranagar) and your city for AQI.
+          Covers Delhi NCR, Mumbai, Bangalore, Hyderabad & Pune. Try Dwarka,
+          Rohini, Gurgaon, Noida (Delhi NCR), Bandra (Mumbai), Gachibowli
+          (Hyderabad) or Hinjewadi (Pune). Unknown locality? We fall back to a
+          city-typical estimate.
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">

@@ -78,7 +78,7 @@ with **Capacitor** — no rewrite.
 | Primary LLM | **Google Gemini 2.5 Flash** | Multimodal (one model = skin analysis **and** OCR), generous free tier, no card | Free tier |
 | Text fallback LLM | **Groq (Llama 3.3 70B)** | Fastest tokens/sec, free tier, OpenAI-compatible | Free tier |
 | Air quality data | **WAQI / aqicn** | Free token, strong India station coverage | Free |
-| Water hardness data | **Proprietary curated dataset** (this repo) | No public API exists → this is your moat | Free |
+| Water hardness data | **Proprietary curated dataset** (this repo, 40+ localities across 5 metros) | No public API exists → this is your moat | Free |
 | Quick commerce | **Deep links (Blinkit/Zepto/Instamart)** | Affiliate model; avoids enterprise API access entirely | Free |
 | DB + Auth (Phase 2) | **Supabase** (Postgres) | Free tier covers Auth, DB, storage | Free tier |
 | Hosting | **Vercel** | Zero-config Next.js deploys, free hobby tier | Free tier |
@@ -183,8 +183,19 @@ Razorpay subscriptions (₹99/₹699), soft paywall after the aha moment, affili
 deals with quick-commerce platforms, refill push notifications.
 
 **Phase 4 — Depth**
-Expand the water dataset to Delhi NCR / Mumbai / Hyderabad / Pune; gut-skin
-protocol; optional native shell via Capacitor for app stores.
+Water dataset now covers **Bangalore, Delhi NCR, Mumbai, Hyderabad and Pune**
+(40+ localities). Next: crowd-source exact TDS per society/pincode (users submit
+TDS-meter readings), add a gut-skin protocol, and optionally ship a native shell
+via Capacitor for the app stores.
+
+### Water dataset sources & accuracy
+Bangalore values are from field research. Delhi NCR / Mumbai / Hyderabad / Pune
+values are informed **estimates** from public groundwater & municipal studies
+and reporting (e.g. Dwarka groundwater avg ~1042 mg/L TDS; Noida society samples
+1,000–3,500+ ppm; Mumbai lake-fed supply is soft, typically <150 ppm). Treat
+non-Bangalore numbers as seed estimates and calibrate with a ₹300–₹500 TDS meter
+or your local water board's report. The app falls back to a **city-typical
+estimate** when a specific locality is not yet mapped.
 
 ---
 
