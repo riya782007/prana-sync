@@ -71,6 +71,8 @@ export interface SkinScore {
   notes: string[];
   /** Set when the analysis is heuristic (no LLM key configured). */
   simulated?: boolean;
+  /** Set when the model could not clearly read a face (retake suggested). */
+  lowConfidence?: boolean;
 }
 
 export interface ProductIngredients {
