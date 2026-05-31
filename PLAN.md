@@ -173,10 +173,19 @@ working with keyless fallbacks.
 **Phase 1 — Go live (free)**
 Add Gemini + WAQI keys; deploy to Vercel; buy domain; ship PWA.
 
-**Phase 2 — Accounts & history (free tier)**
-Supabase Auth + Postgres: save profiles, weekly Skin Score history, routine
-adherence, inventory. Crowd-source water-TDS data per pincode to widen the moat
-beyond Bangalore.
+**Phase 2 — Accounts & history (free tier) ✅ implemented**
+Supabase Auth (email magic-link) + Postgres with Row-Level Security: users sign
+in, every Skin Score is saved and charted over time, and inventory persists for
+refill tracking. Gracefully degrades to demo mode when Supabase env vars are
+absent.
+
+> Required env var NAMES (must match exactly; the two browser vars MUST keep the
+> `NEXT_PUBLIC_` prefix or the client cannot read them):
+> `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+> (the Supabase "anon"/"publishable" key value goes here).
+> After adding/renaming env vars in Vercel, trigger a **redeploy**.
+
+Still to do: crowd-source water-TDS data per pincode to widen the moat.
 
 **Phase 3 — Monetize**
 Razorpay subscriptions (₹99/₹699), soft paywall after the aha moment, affiliate
