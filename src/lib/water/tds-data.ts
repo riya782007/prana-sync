@@ -1,16 +1,78 @@
-import type { RoutineStep, WaterProfile } from "@/lib/types";
+import type { RiskLevel, RoutineStep, WaterProfile } from "@/lib/types";
 
 /**
  * Hyperlocal water hardness dataset.
  *
  * This is the proprietary, defensible differentiator for Prana Sync: a curated
  * map of locality -> measured TDS range and the biophysical consequences of
- * that water chemistry. Values are seeded from field research across Bangalore
- * and can be crowd-sourced / expanded over time.
+ * that water chemistry.
+ *
+ * Bangalore profiles are seeded from field research. Delhi NCR / Mumbai /
+ * Hyderabad / Pune profiles are seeded from public groundwater & municipal
+ * water-quality studies and news reporting (see PLAN.md for sources). Treat
+ * non-Bangalore values as informed ESTIMATES — they should be calibrated with
+ * a TDS meter and crowd-sourced per society/pincode over time.
  *
  * BIS reference: water > 150 ppm is "hard", > 300 ppm is "very hard".
  */
-export const WATER_PROFILES: WaterProfile[] = [
+
+/** Risk-based defaults so new-city entries stay concise and consistent. */
+function defaultsFor(risk: RiskLevel): {
+  pathologies: string[];
+  annualCostOfInactionInr: number;
+} {
+  switch (risk) {
+    case "very_high":
+      return {
+        pathologies: [
+          "Heavy calcium calcification on hair",
+          "Hair snapping mid-shaft",
+          "Dry, tight skin & barrier disruption",
+          "Scalp flaking that mimics dandruff",
+        ],
+        annualCostOfInactionInr: 18000,
+      };
+    case "high":
+      return {
+        pathologies: [
+          "Loss of hair tensile strength",
+          "Dry skin patches",
+          "Moisture barrier disruption",
+          "Mineral + product buildup",
+        ],
+        annualCostOfInactionInr: 14000,
+      };
+    case "moderate":
+      return {
+        pathologies: [
+          "Mild cuticle swelling",
+          "Moderate product buildup",
+          "Dullness",
+        ],
+        annualCostOfInactionInr: 8000,
+      };
+    case "low":
+      return {
+        pathologies: ["Minimal mineral deposit", "Trace chlorine irritation"],
+        annualCostOfInactionInr: 4000,
+      };
+  }
+}
+
+/** Compact factory for a water profile using risk-based defaults. */
+function wp(
+  area: string,
+  city: string,
+  primarySource: string,
+  tdsMin: number,
+  tdsMax: number,
+  risk: RiskLevel,
+): WaterProfile {
+  return { area, city, primarySource, tdsMin, tdsMax, risk, ...defaultsFor(risk) };
+}
+
+// --- Bangalore (original field research; explicit pathologies preserved) -----
+const BANGALORE: WaterProfile[] = [
   {
     area: "Electronic City",
     city: "Bangalore",
@@ -89,11 +151,7 @@ export const WATER_PROFILES: WaterProfile[] = [
     tdsMin: 250,
     tdsMax: 450,
     risk: "moderate",
-    pathologies: [
-      "Mild cuticle swelling",
-      "Moderate product buildup",
-      "Dullness",
-    ],
+    pathologies: ["Mild cuticle swelling", "Moderate product buildup", "Dullness"],
     annualCostOfInactionInr: 8000,
   },
   {
@@ -103,11 +161,7 @@ export const WATER_PROFILES: WaterProfile[] = [
     tdsMin: 250,
     tdsMax: 450,
     risk: "moderate",
-    pathologies: [
-      "Mild cuticle swelling",
-      "Moderate product buildup",
-      "Dullness",
-    ],
+    pathologies: ["Mild cuticle swelling", "Moderate product buildup", "Dullness"],
     annualCostOfInactionInr: 8000,
   },
   {
@@ -132,24 +186,137 @@ export const WATER_PROFILES: WaterProfile[] = [
   },
 ];
 
+// --- Delhi NCR (groundwater is among the hardest in India) -------------------
+const DELHI_NCR: WaterProfile[] = [
+  wp("Dwarka", "Delhi", "Borewell (deep groundwater)", 800, 1900, "very_high"),
+  wp("Rohini", "Delhi", "Borewell & DJB mix", 600, 1500, "very_high"),
+  wp("Pitampura", "Delhi", "Borewell & DJB mix", 600, 1400, "very_high"),
+  wp("Janakpuri", "Delhi", "Borewell & DJB mix", 500, 1200, "high"),
+  wp("Vasant Kunj", "Delhi", "Borewell dominant", 500, 1100, "high"),
+  wp("Saket", "Delhi", "Mixed DJB & borewell", 400, 900, "high"),
+  wp("Mayur Vihar", "Delhi", "Mixed DJB & borewell", 400, 900, "high"),
+  wp("Lajpat Nagar", "Delhi", "DJB municipal", 300, 650, "moderate"),
+  wp("Central Delhi", "Delhi", "DJB treated (Yamuna/Ganga)", 250, 550, "moderate"),
+  wp("Gurgaon", "Gurgaon", "Borewell & tanker", 700, 1800, "very_high"),
+  wp("Sohna Road", "Gurgaon", "Borewell & tanker", 700, 1700, "very_high"),
+  wp("Noida", "Noida", "Borewell & groundwater", 1000, 3500, "very_high"),
+  wp("Greater Noida", "Greater Noida", "Borewell dominant", 800, 2000, "very_high"),
+  wp("Indirapuram", "Ghaziabad", "Borewell & groundwater", 600, 1500, "very_high"),
+  wp("Faridabad", "Faridabad", "Borewell & groundwater", 700, 2500, "very_high"),
+];
+
+// --- Mumbai (lake-fed municipal supply is notably SOFT) ----------------------
+const MUMBAI: WaterProfile[] = [
+  wp("South Mumbai", "Mumbai", "Municipal (lakes: Tansa/Bhatsa)", 40, 150, "low"),
+  wp("Colaba", "Mumbai", "Municipal (lakes)", 40, 150, "low"),
+  wp("Bandra", "Mumbai", "Municipal (lakes)", 50, 180, "low"),
+  wp("Andheri", "Mumbai", "Municipal (lakes)", 80, 230, "low"),
+  wp("Powai", "Mumbai", "Municipal (lakes)", 80, 220, "low"),
+  wp("Vashi", "Navi Mumbai", "Municipal & borewell", 150, 400, "moderate"),
+  wp("Thane", "Thane", "Municipal & borewell", 200, 500, "moderate"),
+];
+
+// --- Hyderabad (municipal moderate; IT-corridor borewells hard) --------------
+const HYDERABAD: WaterProfile[] = [
+  wp("Gachibowli", "Hyderabad", "Borewell dominant", 500, 1200, "high"),
+  wp("HITEC City", "Hyderabad", "Borewell dominant", 500, 1100, "high"),
+  wp("Madhapur", "Hyderabad", "Borewell dominant", 500, 1100, "high"),
+  wp("Kondapur", "Hyderabad", "Borewell dominant", 450, 1000, "high"),
+  wp("Kukatpally", "Hyderabad", "Mixed municipal & borewell", 350, 700, "moderate"),
+  wp("Banjara Hills", "Hyderabad", "Municipal (Krishna/Godavari)", 250, 500, "moderate"),
+  wp("Secunderabad", "Hyderabad", "Municipal", 250, 550, "moderate"),
+];
+
+// --- Pune (dam-fed municipal moderate; fringe borewells harder) --------------
+const PUNE: WaterProfile[] = [
+  wp("Hinjewadi", "Pune", "Borewell dominant", 450, 950, "high"),
+  wp("Wakad", "Pune", "Borewell & municipal", 380, 780, "high"),
+  wp("Baner", "Pune", "Mixed municipal & borewell", 350, 700, "moderate"),
+  wp("Hadapsar", "Pune", "Mixed municipal & borewell", 300, 650, "moderate"),
+  wp("Viman Nagar", "Pune", "Mixed municipal & borewell", 280, 600, "moderate"),
+  wp("Kothrud", "Pune", "Municipal (Khadakwasla)", 200, 450, "moderate"),
+];
+
+export const WATER_PROFILES: WaterProfile[] = [
+  ...BANGALORE,
+  ...DELHI_NCR,
+  ...MUMBAI,
+  ...HYDERABAD,
+  ...PUNE,
+];
+
+/** Cities with at least one curated profile (for UI hints). */
+export const SUPPORTED_CITIES: string[] = [
+  ...new Set(WATER_PROFILES.map((p) => p.city)),
+];
+
 function normalize(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-/** Find the best matching water profile for a free-text locality string. */
-export function lookupWaterProfile(query: string): WaterProfile | null {
-  const q = normalize(query);
-  if (!q) return null;
+function sameCity(profile: WaterProfile, city?: string): boolean {
+  if (!city) return true;
+  const c = normalize(city);
+  return normalize(profile.city) === c || c.includes(normalize(profile.city));
+}
 
-  // Exact area match first.
-  const exact = WATER_PROFILES.find((p) => normalize(p.area) === q);
-  if (exact) return exact;
-
-  // Partial / contains match (handles "Sarjapur Road", "EC Phase 1", etc.).
-  const partial = WATER_PROFILES.find(
-    (p) => q.includes(normalize(p.area)) || normalize(p.area).includes(q),
+/**
+ * Build a representative "typical" profile for a city when we have no exact
+ * locality match. Uses the median-ish TDS of known localities in that city so
+ * a user typing an unknown area still gets city-appropriate guidance.
+ */
+function cityTypicalProfile(city: string): WaterProfile | null {
+  const inCity = WATER_PROFILES.filter((p) => sameCity(p, city));
+  if (inCity.length === 0) return null;
+  const tdsMin = Math.round(
+    inCity.reduce((s, p) => s + p.tdsMin, 0) / inCity.length,
   );
-  return partial ?? null;
+  const tdsMax = Math.round(
+    inCity.reduce((s, p) => s + p.tdsMax, 0) / inCity.length,
+  );
+  const mid = (tdsMin + tdsMax) / 2;
+  const risk: RiskLevel =
+    mid >= 700 ? "very_high" : mid >= 450 ? "high" : mid >= 250 ? "moderate" : "low";
+  return {
+    area: `${inCity[0].city} (typical)`,
+    city: inCity[0].city,
+    primarySource: "City average (calibrate locally)",
+    tdsMin,
+    tdsMax,
+    risk,
+    ...defaultsFor(risk),
+  };
+}
+
+/**
+ * Find the best matching water profile for a free-text locality string.
+ * Optionally pass `city` to disambiguate and to enable a city-level fallback.
+ */
+export function lookupWaterProfile(
+  query: string,
+  city?: string,
+): WaterProfile | null {
+  const q = normalize(query);
+
+  if (q) {
+    // 1. Exact area match (prefer same city when provided).
+    const exact = WATER_PROFILES.filter((p) => normalize(p.area) === q);
+    const exactCity = exact.find((p) => sameCity(p, city));
+    if (exactCity) return exactCity;
+    if (exact[0]) return exact[0];
+
+    // 2. Partial match (handles "Sarjapur Road", "Dwarka Sector 12", etc.).
+    const partial = WATER_PROFILES.filter(
+      (p) => q.includes(normalize(p.area)) || normalize(p.area).includes(q),
+    );
+    const partialCity = partial.find((p) => sameCity(p, city));
+    if (partialCity) return partialCity;
+    if (partial[0]) return partial[0];
+  }
+
+  // 3. City-level fallback (e.g. unknown locality but known city).
+  if (city) return cityTypicalProfile(city);
+  return null;
 }
 
 /** Midpoint TDS estimate for a profile, used for scoring. */

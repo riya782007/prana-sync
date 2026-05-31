@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { area, city, concerns } = parsed.data;
-  const water = area ? lookupWaterProfile(area) : null;
+  const water = area || city ? lookupWaterProfile(area ?? "", city) : null;
   const aqi = city ? await fetchAqi(city) : null;
 
   const routine = buildRoutine({ concerns, water, aqi });

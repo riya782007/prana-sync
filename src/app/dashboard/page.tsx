@@ -1,7 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSupabaseUser } from "@/lib/supabase/use-user";
+import { AccountPanel } from "@/components/account-panel";
+import {
+  saveSkinScore,
+  listSkinScores,
+  listInventory,
+  addInventory,
+  deleteInventory,
+  type SkinScoreRow,
+  type InventoryRow,
+} from "@/lib/supabase/client";
+import type { SkinScore } from "@/lib/types";
 
 type Concern =
   | "hair_fall"
@@ -58,8 +70,11 @@ function priorityColor(p: string) {
 }
 
 export default function Dashboard() {
-  const [area, setArea] = useState("Whitefield");
-  const [city, setCity] = useState("Bangalore");
+  const account = useSupabaseUser();
+  const userId = account.user?.id ?? null;
+
+  const [area, setArea] = useState("Dwarka");
+  const [city, setCity] = useState("Delhi");
   const [concerns, setConcerns] = useState<Concern[]>(["hair_fall", "dryness"]);
   const [routine, setRoutine] = useState<RoutineResult | null>(null);
   const [routineLoading, setRoutineLoading] = useState(false);
@@ -90,17 +105,23 @@ export default function Dashboard() {
         <Link href="/" className="text-lg font-semibold text-prana-100">
           Prana<span className="text-prana-500">Sync</span>
         </Link>
-        <span className="text-xs text-prana-100/50">Demo dashboard</span>
+        <span className="text-xs text-prana-100/50">Dashboard</span>
+      </div>
+
+      <div className="mt-4">
+        <AccountPanel account={account} />
       </div>
 
       {/* Environment calibration */}
-      <section className="mt-8 rounded-2xl border border-prana-900 bg-prana-900/20 p-6">
+      <section className="mt-6 rounded-2xl border border-prana-900 bg-prana-900/20 p-6">
         <h2 className="text-xl font-semibold text-prana-50">
           1 · Calibrate your environment
         </h2>
         <p className="mt-1 text-sm text-prana-100/70">
-          Pick a Bangalore locality (try Electronic City, Sarjapur, Koramangala,
-          Indiranagar) and your city for AQI.
+          Covers Delhi NCR, Mumbai, Bangalore, Hyderabad & Pune. Try Dwarka,
+          Rohini, Gurgaon, Noida (Delhi NCR), Bandra (Mumbai), Gachibowli
+          (Hyderabad) or Hinjewadi (Pune). Unknown locality? We fall back to a
+          city-typical estimate.
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -218,13 +239,14 @@ export default function Dashboard() {
         )}
       </section>
 
-      <SkinScan />
+      <SkinScan userId={userId} />
       <IngredientChecker />
-      <RefillPlanner />
+      <RefillPlanner userId={userId} />
 
       <footer className="mt-12 text-xs text-prana-100/40">
         All sections work without keys (simulated). Configure GEMINI_API_KEY and
-        WAQI_TOKEN to enable real analysis. Not a medical device.
+        WAQI_TOKEN for real analysis, and Supabase keys to save history. Not a
+        medical device.
       </footer>
     </main>
   );
@@ -232,22 +254,36 @@ export default function Dashboard() {
 
 /* ---------------- Skin scan ---------------- */
 interface SkinScoreResult {
-  score: {
-    overall: number;
-    parameters: { name: string; value: number }[];
-    notes: string[];
-    simulated?: boolean;
-  };
+  score: SkinScore;
 }
 
-function SkinScan() {
+function SkinScan({ userId }: { userId: string | null }) {
   const [result, setResult] = useState<SkinScoreResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<SkinScoreRow[]>([]);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  const refreshHistory = useCallback(async () => {
+    if (!userId) {
+      setHistory([]);
+      return;
+    }
+    try {
+      setHistory(await listSkinScores());
+    } catch {
+      /* ignore — keep demo usable */
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    refreshHistory();
+  }, [refreshHistory]);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setLoading(true);
+    setSaveMsg(null);
     try {
       const dataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -259,7 +295,18 @@ function SkinScan() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: dataUrl }),
       });
-      setResult(await res.json());
+      const json = (await res.json()) as SkinScoreResult;
+      setResult(json);
+
+      if (userId && json.score) {
+        try {
+          await saveSkinScore(userId, json.score);
+          setSaveMsg("Saved to your history.");
+          await refreshHistory();
+        } catch {
+          setSaveMsg("Could not save to history.");
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -272,7 +319,7 @@ function SkinScan() {
       </h2>
       <p className="mt-1 text-sm text-prana-100/70">
         Upload a selfie to get a brand-agnostic 0–100 Skin Score across 7
-        parameters. Track it weekly to see what actually works.
+        parameters. {userId ? "Each scan is saved so you can track progress." : "Sign in to save and track it over time."}
       </p>
 
       <label className="mt-4 inline-block cursor-pointer rounded-full border border-prana-700 px-5 py-2.5 text-sm font-medium text-prana-100 hover:border-prana-500">
@@ -284,6 +331,7 @@ function SkinScan() {
           className="hidden"
         />
       </label>
+      {saveMsg && <span className="ml-3 text-xs text-prana-300">{saveMsg}</span>}
 
       {result?.score && (
         <div className="mt-5">
@@ -321,6 +369,35 @@ function SkinScan() {
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {userId && history.length > 0 && (
+        <div className="mt-6 border-t border-prana-900 pt-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-prana-500">
+            Your Skin Score history
+          </h3>
+          <div className="mt-3 space-y-2">
+            {history.map((h) => (
+              <div key={h.id} className="flex items-center gap-3">
+                <span className="w-24 shrink-0 text-xs text-prana-100/50">
+                  {new Date(h.created_at).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                  })}
+                </span>
+                <div className="h-2 flex-1 rounded-full bg-black/40">
+                  <div
+                    className="h-full rounded-full bg-prana-500"
+                    style={{ width: `${h.overall}%` }}
+                  />
+                </div>
+                <span className="w-10 shrink-0 text-right text-xs text-prana-100">
+                  {h.overall}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </section>
@@ -428,41 +505,99 @@ function IngredientChecker() {
 }
 
 /* ---------------- Refill planner ---------------- */
-interface RefillResult {
-  estimates: {
-    name: string;
-    daysRemaining: number;
-    reorderNow: boolean;
-    links: { platform: string; label: string; url: string }[];
-  }[];
+interface RefillEstimate {
+  name: string;
+  daysRemaining: number;
+  reorderNow: boolean;
+  links: { platform: string; label: string; url: string }[];
 }
 
-function RefillPlanner() {
-  const [result, setResult] = useState<RefillResult | null>(null);
+const DEMO_ITEMS = [
+  { name: "probiotic capsules", packSize: 30, perDay: 1, offsetDays: 28 },
+  { name: "KDF shower filter cartridge", packSize: 90, perDay: 1, offsetDays: 28 },
+];
+
+function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+}
+
+function RefillPlanner({ userId }: { userId: string | null }) {
+  const [estimates, setEstimates] = useState<RefillEstimate[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState<InventoryRow[]>([]);
+  const [form, setForm] = useState({
+    name: "",
+    packSize: 30,
+    perDay: 1,
+    startedOn: isoDaysAgo(0),
+  });
+
+  const refreshItems = useCallback(async () => {
+    if (!userId) {
+      setItems([]);
+      return;
+    }
+    try {
+      setItems(await listInventory());
+    } catch {
+      /* ignore */
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    refreshItems();
+  }, [refreshItems]);
+
+  async function addItem(e: React.FormEvent) {
+    e.preventDefault();
+    if (!userId || !form.name.trim()) return;
+    try {
+      await addInventory(userId, {
+        name: form.name.trim(),
+        pack_size: Number(form.packSize),
+        per_day: Number(form.perDay),
+        started_on: form.startedOn,
+      });
+      setForm({ name: "", packSize: 30, perDay: 1, startedOn: isoDaysAgo(0) });
+      await refreshItems();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function removeItem(id: string) {
+    try {
+      await deleteInventory(id);
+      await refreshItems();
+    } catch {
+      /* ignore */
+    }
+  }
 
   async function plan() {
     setLoading(true);
-    const startedOn = new Date(Date.now() - 28 * 86_400_000)
-      .toISOString()
-      .slice(0, 10);
+    const payloadItems =
+      userId && items.length > 0
+        ? items.map((i) => ({
+            name: i.name,
+            packSize: i.pack_size,
+            perDay: i.per_day,
+            startedOn: i.started_on,
+          }))
+        : DEMO_ITEMS.map((d) => ({
+            name: d.name,
+            packSize: d.packSize,
+            perDay: d.perDay,
+            startedOn: isoDaysAgo(d.offsetDays),
+          }));
     try {
       const res = await fetch("/api/refill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: [
-            { name: "probiotic capsules", packSize: 30, perDay: 1, startedOn },
-            {
-              name: "KDF shower filter cartridge",
-              packSize: 90,
-              perDay: 1,
-              startedOn,
-            },
-          ],
-        }),
+        body: JSON.stringify({ items: payloadItems }),
       });
-      setResult(await res.json());
+      const json = await res.json();
+      setEstimates(json.estimates ?? []);
     } finally {
       setLoading(false);
     }
@@ -475,8 +610,66 @@ function RefillPlanner() {
       </h2>
       <p className="mt-1 text-sm text-prana-100/70">
         We track depletion and deep-link a pre-filled cart into quick commerce
-        before you run out. Example: a 30-day probiotic box started 28 days ago.
+        before you run out.{" "}
+        {userId
+          ? "Add the products you use and we'll watch them for you."
+          : "Sign in to save your own products; meanwhile this uses a sample box."}
       </p>
+
+      {userId && (
+        <form onSubmit={addItem} className="mt-4 grid gap-2 sm:grid-cols-5">
+          <input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Product name"
+            className="sm:col-span-2 rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-sm text-prana-50 outline-none focus:border-prana-500"
+          />
+          <input
+            type="number"
+            min={1}
+            value={form.packSize}
+            onChange={(e) => setForm({ ...form, packSize: Number(e.target.value) })}
+            placeholder="Pack size"
+            className="rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-sm text-prana-50 outline-none focus:border-prana-500"
+          />
+          <input
+            type="number"
+            min={0.1}
+            step={0.1}
+            value={form.perDay}
+            onChange={(e) => setForm({ ...form, perDay: Number(e.target.value) })}
+            placeholder="Per day"
+            className="rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-sm text-prana-50 outline-none focus:border-prana-500"
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-prana-600 px-3 py-2 text-sm font-medium text-white hover:bg-prana-500"
+          >
+            Add
+          </button>
+        </form>
+      )}
+
+      {userId && items.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {items.map((i) => (
+            <span
+              key={i.id}
+              className="flex items-center gap-2 rounded-full border border-prana-900 bg-black/20 px-3 py-1 text-xs text-prana-100/80"
+            >
+              {i.name} ({i.pack_size}/{i.per_day}/day)
+              <button
+                onClick={() => removeItem(i.id)}
+                className="text-prana-100/40 hover:text-red-300"
+                aria-label={`Remove ${i.name}`}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       <button
         onClick={plan}
         disabled={loading}
@@ -485,9 +678,14 @@ function RefillPlanner() {
         {loading ? "Checking…" : "Check my refills"}
       </button>
 
-      {result && (
+      {estimates && (
         <div className="mt-5 space-y-3">
-          {result.estimates.map((e) => (
+          {estimates.length === 0 && (
+            <p className="text-sm text-prana-100/60">
+              No items to check yet — add a product above.
+            </p>
+          )}
+          {estimates.map((e) => (
             <div
               key={e.name}
               className="rounded-lg border border-prana-900 bg-black/20 p-4"
