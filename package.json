@@ -2,7 +2,7 @@
   "name": "prana-sync",
   "version": "0.1.0",
   "private": true,
-  "description": "Prana Sync - hyperlocal, brand-agnostic skin/hair/gut health coach for urban India",
+  "description": "Prana Sync - free, plain-language skin & hair coach that adapts to your city's water and air",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.106.2",
     "next": "^15.5.18",
     "react": "19.0.0",
     "react-dom": "19.0.0",

@@ -6,7 +6,7 @@ this repo implements as an MVP.
 
 > TL;DR on your ₹2,000 budget: **you do not need to spend it on API keys.** The
 > entire MVP runs on free tiers (Gemini, Groq, WAQI, Supabase, Vercel,
-> Razorpay-on-transaction). Spend the ₹2,000 on a **domain name** + keep the
+> Vercel). Spend the ₹2,000 on a **domain name** + keep the
 > rest as a usage buffer. See [Budget](#5-the-2000-budget).
 
 ---
@@ -26,8 +26,8 @@ concrete, unsolved consumer pains. Prana Sync attacks all four:
 
 The strategic moat is **decoupling diagnosis from selling product**. Unlike
 Cureskin / Skinkraft / Minimalist (diagnosis funnels into their own catalog),
-Prana Sync stays an impartial orchestrator and earns from **SaaS subscriptions +
-affiliate commission**, which builds the trust those closed-loop apps lack.
+Prana Sync stays an impartial, free orchestrator — it sells nothing and pushes
+no catalog, which builds the trust those closed-loop apps lack.
 
 ---
 
@@ -82,7 +82,7 @@ with **Capacitor** — no rewrite.
 | Quick commerce | **Deep links (Blinkit/Zepto/Instamart)** | Affiliate model; avoids enterprise API access entirely | Free |
 | DB + Auth (Phase 2) | **Supabase** (Postgres) | Free tier covers Auth, DB, storage | Free tier |
 | Hosting | **Vercel** | Zero-config Next.js deploys, free hobby tier | Free tier |
-| Payments (Phase 3) | **Razorpay** | India-native UPI + subscriptions; pay per transaction | ~2% per txn |
+
 
 ### LLM recommendation rationale
 - **Use Gemini for everything vision** (the Skin Score + ingredient-label OCR).
@@ -121,13 +121,6 @@ All of these are free and take ~2 minutes each.
 1. Create a project at **https://supabase.com** (free tier).
 2. Project → **Settings → API**: copy the URL + anon key + service role key.
 
-### E. Razorpay (Phase 3 — when you charge money)
-1. Sign up at **https://dashboard.razorpay.com**, complete KYC.
-2. **Settings → API Keys → Generate** (start in Test mode).
-3. No setup fee; you pay a per-transaction percentage only when you earn.
-
----
-
 ## 5. The ₹2,000 budget
 
 | Item | Cost | Notes |
@@ -137,7 +130,6 @@ All of these are free and take ~2 minutes each.
 | WAQI token | ₹0 | Free |
 | Supabase | ₹0 | Free tier |
 | Vercel hosting | ₹0 | Free hobby tier |
-| Razorpay | ₹0 upfront | Per-transaction only |
 | **Domain name** (e.g. pranasync.in / .app) | **₹800–₹1,200/yr** | The one thing worth buying |
 | **LLM usage buffer** | **₹500–₹800** | Top up Gemini/Groq *only if* you exceed free limits during a launch spike |
 | **Total** | **≤ ₹2,000** | Comfortably within budget |
@@ -148,19 +140,12 @@ likely never need it pre-revenue.
 
 ---
 
-## 6. Monetization (numbers from the research)
+## 6. Status
 
-- **Soft paywall**: free first skin scan + free water/AQI report. Show the
-  subscription prompt **after** the first "aha" (ingredient compatibility report
-  / first environmental routine) — the research notes this placement lifts
-  conversion ~35%.
-- **Pricing (PPP-localized for India):**
-  - Pro Monthly: **₹99/mo**
-  - Pro Annual (lead offer): **₹699/yr** (~₹58/mo)
-- **Affiliate revenue:** commission on quick-commerce reorders (no inventory,
-  no fulfilment, no payment processing on our side).
-- Annual plans align with the 4–8 week skin-renewal cycle and the 24-month
-  retention milestone; avoid discount-heavy acquisition (those cohorts churn).
+Prana Sync is currently a **free, no-sign-up testing build**. There is no
+pricing, subscription, paywall or upgrade path — every feature is open so
+testers can experience the full value with zero friction. Monetization is
+intentionally out of scope for this phase.
 
 ---
 
@@ -187,9 +172,9 @@ absent.
 
 Still to do: crowd-source water-TDS data per pincode to widen the moat.
 
-**Phase 3 — Monetize**
-Razorpay subscriptions (₹99/₹699), soft paywall after the aha moment, affiliate
-deals with quick-commerce platforms, refill push notifications.
+**Phase 3 — (parked)**
+Monetization is intentionally not part of this build. The app stays free and
+open during testing.
 
 **Phase 4 — Depth**
 Water dataset now covers **Bangalore, Delhi NCR, Mumbai, Hyderabad and Pune**

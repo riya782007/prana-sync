@@ -1,18 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useSupabaseUser } from "@/lib/supabase/use-user";
-import { AccountPanel } from "@/components/account-panel";
-import {
-  saveSkinScore,
-  listSkinScores,
-  listInventory,
-  addInventory,
-  deleteInventory,
-  type SkinScoreRow,
-  type InventoryRow,
-} from "@/lib/supabase/client";
 import type { SkinScore } from "@/lib/types";
 
 type Concern =
@@ -27,13 +16,13 @@ type Concern =
 
 const CONCERNS: { id: Concern; label: string }[] = [
   { id: "hair_fall", label: "Hair fall" },
-  { id: "hair_frizz", label: "Frizz" },
+  { id: "hair_frizz", label: "Frizzy hair" },
   { id: "dandruff", label: "Dandruff / flaking" },
-  { id: "dryness", label: "Dryness" },
-  { id: "acne", label: "Acne" },
-  { id: "sensitivity", label: "Sensitivity" },
-  { id: "pigmentation", label: "Pigmentation" },
-  { id: "dullness", label: "Dullness" },
+  { id: "dryness", label: "Dry skin" },
+  { id: "acne", label: "Pimples" },
+  { id: "sensitivity", label: "Sensitive skin" },
+  { id: "pigmentation", label: "Dark spots" },
+  { id: "dullness", label: "Dull skin" },
 ];
 
 interface RoutineStep {
@@ -63,16 +52,46 @@ interface RoutineResult {
   };
 }
 
-function priorityColor(p: string) {
-  if (p === "critical") return "border-red-500/40 bg-red-500/10";
-  if (p === "recommended") return "border-prana-500/40 bg-prana-500/10";
-  return "border-prana-900 bg-prana-900/20";
+/* ---- plain-language helpers ---- */
+
+function hardnessWord(risk: string): { label: string; meaning: string; hard: boolean } {
+  const r = risk.toLowerCase();
+  if (r === "very_high" || r.includes("very"))
+    return { label: "Very hard water", meaning: "Lots of minerals — this strongly dries out skin and roughens hair.", hard: true };
+  if (r === "high" || r.includes("hard"))
+    return { label: "Hard water", meaning: "Enough minerals to leave skin tight and hair rough over time.", hard: true };
+  if (r === "moderate")
+    return { label: "Medium water", meaning: "A little mineral load — manageable with small tweaks.", hard: false };
+  return { label: "Soft water", meaning: "Gentle on skin and hair — lucky you.", hard: false };
 }
 
-export default function Dashboard() {
-  const account = useSupabaseUser();
-  const userId = account.user?.id ?? null;
+function airWord(aqi: number): { label: string; meaning: string; tone: "good" | "warn" | "bad" } {
+  if (aqi <= 100) return { label: "Air is okay today", meaning: "Nothing extra needed — your normal routine is fine.", tone: "good" };
+  if (aqi <= 200) return { label: "Air is a bit polluted today", meaning: "We've added a proper evening cleanse to wash the day off.", tone: "warn" };
+  return { label: "Air is bad today", meaning: "We've toned down strong products and added extra cleansing so your skin doesn't get irritated.", tone: "bad" };
+}
 
+function verdict(routine: RoutineResult, concerns: Concern[]): string {
+  const water = routine.environment.water;
+  const hairConcern = concerns.some((c) => c.startsWith("hair") || c === "dandruff");
+  const target = hairConcern ? "your hair feeling rough or falling more" : "your skin feeling dry or tight";
+  if (water && hardnessWord(water.risk).hard) {
+    return `Here's the real reason: your tap water is ${hardnessWord(water.risk).label.toLowerCase()}. That's a big part of why ${target}. The few simple steps below are built for exactly that — give them two weeks and you'll feel the difference.`;
+  }
+  return `Good news — your water is gentle. The simple steps below are tuned to what you told us, so you're not wasting money on products you don't need.`;
+}
+
+const FRIENDLY_PARAM: Record<string, string> = {
+  hydration: "Moisture",
+  redness: "Calmness",
+  pores: "Pores",
+  texture: "Smoothness",
+  pigmentation: "Even tone",
+  oiliness: "Oil balance",
+  barrier_health: "Skin strength",
+};
+
+export default function Dashboard() {
   const [area, setArea] = useState("Dwarka");
   const [city, setCity] = useState("Delhi");
   const [concerns, setConcerns] = useState<Concern[]>(["hair_fall", "dryness"]);
@@ -99,51 +118,50 @@ export default function Dashboard() {
     );
   }
 
+  const air = routine?.environment.aqi ? airWord(routine.environment.aqi.aqi) : null;
+
   return (
     <main className="mx-auto max-w-5xl px-5 py-10">
       <div className="flex items-center justify-between">
         <Link href="/" className="text-lg font-semibold text-prana-100">
           Prana<span className="text-prana-500">Sync</span>
         </Link>
-        <span className="text-xs text-prana-100/50">Dashboard</span>
+        <span className="text-xs text-prana-100/50">Free · No sign-up</span>
       </div>
 
-      <div className="mt-4">
-        <AccountPanel account={account} />
-      </div>
-
-      {/* Environment calibration */}
+      {/* Step 1 — environment + routine */}
       <section className="mt-6 rounded-2xl border border-prana-900 bg-prana-900/20 p-6">
         <h2 className="text-xl font-semibold text-prana-50">
-          1 · Calibrate your environment
+          Why is my skin and hair acting up?
         </h2>
         <p className="mt-1 text-sm text-prana-100/70">
-          Covers Delhi NCR, Mumbai, Bangalore, Hyderabad & Pune. Try Dwarka,
-          Rohini, Gurgaon, Noida (Delhi NCR), Bandra (Mumbai), Gachibowli
-          (Hyderabad) or Hinjewadi (Pune). Unknown locality? We fall back to a
-          city-typical estimate.
+          Just tell us where you live and what&apos;s bothering you. We&apos;ll
+          show you the real reason in plain words.
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm">
-            <span className="text-prana-100/70">Locality / neighbourhood</span>
+            <span className="text-prana-100/70">Your area / neighbourhood</span>
             <input
               value={area}
               onChange={(e) => setArea(e.target.value)}
+              placeholder="e.g. Dwarka, Bandra, Gachibowli"
               className="mt-1 w-full rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-prana-50 outline-none focus:border-prana-500"
             />
           </label>
           <label className="text-sm">
-            <span className="text-prana-100/70">City (for AQI)</span>
+            <span className="text-prana-100/70">Your city</span>
             <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. Delhi, Mumbai, Pune"
               className="mt-1 w-full rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-prana-50 outline-none focus:border-prana-500"
             />
           </label>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <p className="mt-4 text-sm text-prana-100/70">What&apos;s bothering you? (tap any)</p>
+        <div className="mt-2 flex flex-wrap gap-2">
           {CONCERNS.map((c) => (
             <button
               key={c.id}
@@ -164,126 +182,106 @@ export default function Dashboard() {
           disabled={routineLoading}
           className="mt-5 rounded-full bg-prana-600 px-5 py-2.5 font-medium text-white hover:bg-prana-500 disabled:opacity-50"
         >
-          {routineLoading ? "Building…" : "Build my routine"}
+          {routineLoading ? "Working it out…" : "Show me what's going on"}
         </button>
 
         {routine && (
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 space-y-5">
+            {/* the human verdict */}
+            <p className="rounded-xl border border-prana-500/40 bg-prana-500/10 p-4 text-[15px] leading-relaxed text-prana-50">
+              {verdict(routine, concerns)}
+            </p>
+
             <div className="grid gap-3 sm:grid-cols-2">
               {routine.environment.water && (
                 <div className="rounded-xl border border-prana-900 bg-black/20 p-4">
                   <p className="text-xs uppercase tracking-wide text-prana-100/50">
-                    Water score · {routine.environment.water.area}
+                    Your water · {routine.environment.water.area}
                   </p>
-                  <p className="mt-1 text-3xl font-bold text-prana-50">
-                    {routine.environment.water.score}
-                    <span className="text-base text-prana-100/50">/100</span>
+                  <p className="mt-1 text-2xl font-bold text-prana-50">
+                    {hardnessWord(routine.environment.water.risk).label}
                   </p>
                   <p className="mt-1 text-sm text-prana-100/70">
-                    {routine.environment.water.tdsMin}–
-                    {routine.environment.water.tdsMax} ppm TDS ·{" "}
-                    {routine.environment.water.risk.replace(/_/g, " ")}
+                    {hardnessWord(routine.environment.water.risk).meaning}
                   </p>
-                  <p className="mt-2 text-sm text-prana-500">
-                    Up to ₹
-                    {routine.environment.water.annualSavingInr.toLocaleString(
-                      "en-IN",
-                    )}
-                    /yr saved by fixing your water
-                  </p>
+                  {routine.environment.water.annualSavingInr > 0 && (
+                    <p className="mt-2 text-sm text-prana-500">
+                      Fixing this could save you about ₹
+                      {routine.environment.water.annualSavingInr.toLocaleString("en-IN")} a year
+                      on wasted products.
+                    </p>
+                  )}
                 </div>
               )}
-              {routine.environment.aqi && (
+              {routine.environment.aqi && air && (
                 <div className="rounded-xl border border-prana-900 bg-black/20 p-4">
                   <p className="text-xs uppercase tracking-wide text-prana-100/50">
-                    Air quality · {routine.environment.aqi.station}
+                    Air around you · {routine.environment.aqi.station}
                   </p>
-                  <p className="mt-1 text-3xl font-bold text-prana-50">
-                    {routine.environment.aqi.aqi}
-                    <span className="text-base text-prana-100/50"> AQI</span>
+                  <p className={`mt-1 text-2xl font-bold ${air.tone === "bad" ? "text-red-300" : air.tone === "warn" ? "text-amber-300" : "text-prana-50"}`}>
+                    {air.label}
                   </p>
-                  <p className="mt-1 text-sm text-prana-100/70">
-                    {routine.environment.aqi.category.replace(/_/g, " ")}
-                  </p>
+                  <p className="mt-1 text-sm text-prana-100/70">{air.meaning}</p>
                 </div>
               )}
             </div>
 
-            <p className="text-sm text-prana-100/80">{routine.routine.summary}</p>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              {(["am", "pm", "wash"] as const).map((slot) => (
-                <div key={slot}>
-                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-prana-500">
-                    {slot === "wash" ? "Wash day" : slot.toUpperCase()}
-                  </h3>
-                  <div className="space-y-2">
-                    {routine.routine[slot].map((s) => (
-                      <div
-                        key={s.id}
-                        className={`rounded-lg border p-3 ${priorityColor(s.priority)}`}
-                      >
-                        <p className="text-sm font-medium text-prana-50">
-                          {s.title}
-                        </p>
-                        <p className="mt-1 text-xs text-prana-100/60">
-                          {s.reason}
-                        </p>
-                      </div>
-                    ))}
+            <div>
+              <p className="text-sm font-semibold text-prana-100">Your simple plan</p>
+              <div className="mt-2 grid gap-4 md:grid-cols-3">
+                {([
+                  ["am", "In the morning"],
+                  ["pm", "At night"],
+                  ["wash", "On wash days"],
+                ] as const).map(([slot, label]) => (
+                  <div key={slot}>
+                    <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-prana-500">
+                      {label}
+                    </h3>
+                    <div className="space-y-2">
+                      {routine.routine[slot].map((s) => (
+                        <div
+                          key={s.id}
+                          className="rounded-lg border border-prana-900 bg-prana-900/20 p-3"
+                        >
+                          <p className="text-sm font-medium text-prana-50">{s.title}</p>
+                          <p className="mt-1 text-xs text-prana-100/60">{s.reason}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
       </section>
 
-      <SkinScan userId={userId} />
+      <SkinScan />
       <IngredientChecker />
-      <RefillPlanner userId={userId} />
+      <RefillPlanner />
 
       <footer className="mt-12 text-xs text-prana-100/40">
-        All sections work without keys (simulated). Configure GEMINI_API_KEY and
-        WAQI_TOKEN for real analysis, and Supabase keys to save history. Not a
-        medical device.
+        Everyday skin and hair guidance — not a doctor, and not a diagnosis. Free
+        to use, nothing to buy.
       </footer>
     </main>
   );
 }
 
-/* ---------------- Skin scan ---------------- */
+/* ---------------- Skin check ---------------- */
 interface SkinScoreResult {
   score: SkinScore;
 }
 
-function SkinScan({ userId }: { userId: string | null }) {
+function SkinScan() {
   const [result, setResult] = useState<SkinScoreResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<SkinScoreRow[]>([]);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
-
-  const refreshHistory = useCallback(async () => {
-    if (!userId) {
-      setHistory([]);
-      return;
-    }
-    try {
-      setHistory(await listSkinScores());
-    } catch {
-      /* ignore — keep demo usable */
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    refreshHistory();
-  }, [refreshHistory]);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setLoading(true);
-    setSaveMsg(null);
     try {
       const dataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -295,18 +293,7 @@ function SkinScan({ userId }: { userId: string | null }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: dataUrl }),
       });
-      const json = (await res.json()) as SkinScoreResult;
-      setResult(json);
-
-      if (userId && json.score) {
-        try {
-          await saveSkinScore(userId, json.score);
-          setSaveMsg("Saved to your history.");
-          await refreshHistory();
-        } catch {
-          setSaveMsg("Could not save to history.");
-        }
-      }
+      setResult((await res.json()) as SkinScoreResult);
     } finally {
       setLoading(false);
     }
@@ -314,24 +301,17 @@ function SkinScan({ userId }: { userId: string | null }) {
 
   return (
     <section className="mt-6 rounded-2xl border border-prana-900 bg-prana-900/20 p-6">
-      <h2 className="text-xl font-semibold text-prana-50">
-        2 · Objective Skin Score
-      </h2>
+      <h2 className="text-xl font-semibold text-prana-50">How&apos;s my skin right now?</h2>
       <p className="mt-1 text-sm text-prana-100/70">
-        Upload a selfie to get a brand-agnostic 0–100 Skin Score across 7
-        parameters. {userId ? "Each scan is saved so you can track progress." : "Sign in to save and track it over time."}
+        Take a clear selfie in good light. We&apos;ll give you a simple skin
+        health score out of 100 and point out what to focus on. Your photo is
+        used only to score it — nothing is saved.
       </p>
 
       <label className="mt-4 inline-block cursor-pointer rounded-full border border-prana-700 px-5 py-2.5 text-sm font-medium text-prana-100 hover:border-prana-500">
-        {loading ? "Analysing…" : "Upload selfie"}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={onFile}
-          className="hidden"
-        />
+        {loading ? "Checking your photo…" : "Take / upload selfie"}
+        <input type="file" accept="image/*" onChange={onFile} className="hidden" />
       </label>
-      {saveMsg && <span className="ml-3 text-xs text-prana-300">{saveMsg}</span>}
 
       {result?.score && (
         <div className="mt-5">
@@ -340,24 +320,23 @@ function SkinScan({ userId }: { userId: string | null }) {
               {result.score.overall}
               <span className="text-lg text-prana-100/50">/100</span>
             </p>
-            {result.score.simulated && (
-              <span className="mb-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
-                simulated
-              </span>
-            )}
+            <p className="mb-1 text-sm text-prana-100/70">skin health</p>
           </div>
+          {result.score.simulated && (
+            <p className="mt-2 text-xs text-prana-100/40">
+              Showing a sample score. Real photo scoring switches on once a
+              Gemini key is added (see notes for the owner).
+            </p>
+          )}
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {result.score.parameters.map((p) => (
               <div key={p.name}>
                 <div className="flex justify-between text-xs text-prana-100/70">
-                  <span className="capitalize">{p.name.replace(/_/g, " ")}</span>
+                  <span>{FRIENDLY_PARAM[p.name] ?? p.name.replace(/_/g, " ")}</span>
                   <span>{p.value}</span>
                 </div>
                 <div className="mt-1 h-1.5 rounded-full bg-black/40">
-                  <div
-                    className="h-full rounded-full bg-prana-500"
-                    style={{ width: `${p.value}%` }}
-                  />
+                  <div className="h-full rounded-full bg-prana-500" style={{ width: `${p.value}%` }} />
                 </div>
               </div>
             ))}
@@ -371,40 +350,11 @@ function SkinScan({ userId }: { userId: string | null }) {
           )}
         </div>
       )}
-
-      {userId && history.length > 0 && (
-        <div className="mt-6 border-t border-prana-900 pt-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-prana-500">
-            Your Skin Score history
-          </h3>
-          <div className="mt-3 space-y-2">
-            {history.map((h) => (
-              <div key={h.id} className="flex items-center gap-3">
-                <span className="w-24 shrink-0 text-xs text-prana-100/50">
-                  {new Date(h.created_at).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                  })}
-                </span>
-                <div className="h-2 flex-1 rounded-full bg-black/40">
-                  <div
-                    className="h-full rounded-full bg-prana-500"
-                    style={{ width: `${h.overall}%` }}
-                  />
-                </div>
-                <span className="w-10 shrink-0 text-right text-xs text-prana-100">
-                  {h.overall}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   );
 }
 
-/* ---------------- Ingredient checker ---------------- */
+/* ---------------- Do my products clash? ---------------- */
 interface CompatResult {
   detectedActives: string[];
   issues: { ingredientA: string; ingredientB: string; severity: string; reason: string }[];
@@ -412,12 +362,8 @@ interface CompatResult {
 }
 
 function IngredientChecker() {
-  const [a, setA] = useState(
-    "Aqua, Ascorbic Acid, Ferulic Acid, Tocopherol, Glycerin",
-  );
-  const [b, setB] = useState(
-    "Aqua, Copper Tripeptide-1, Niacinamide, Glycerin, Panthenol",
-  );
+  const [a, setA] = useState("Aqua, Ascorbic Acid, Ferulic Acid, Tocopherol, Glycerin");
+  const [b, setB] = useState("Aqua, Copper Tripeptide-1, Niacinamide, Glycerin, Panthenol");
   const [result, setResult] = useState<CompatResult | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -442,24 +388,25 @@ function IngredientChecker() {
 
   return (
     <section className="mt-6 rounded-2xl border border-prana-900 bg-prana-900/20 p-6">
-      <h2 className="text-xl font-semibold text-prana-50">
-        3 · Ingredient compatibility
-      </h2>
+      <h2 className="text-xl font-semibold text-prana-50">Do my two products clash?</h2>
       <p className="mt-1 text-sm text-prana-100/70">
-        Paste the ingredient lists of two products you own. We detect the
-        actives and flag clashes — no brand bias.
+        Copy the small-print ingredient list from the back of two products you
+        own and paste them below. We&apos;ll tell you in plain words whether
+        they&apos;re fine together or fighting each other.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <textarea
           value={a}
           onChange={(e) => setA(e.target.value)}
           rows={3}
+          placeholder="Paste product 1's ingredients here"
           className="rounded-lg border border-prana-900 bg-black/30 p-3 text-sm text-prana-50 outline-none focus:border-prana-500"
         />
         <textarea
           value={b}
           onChange={(e) => setB(e.target.value)}
           rows={3}
+          placeholder="Paste product 2's ingredients here"
           className="rounded-lg border border-prana-900 bg-black/30 p-3 text-sm text-prana-50 outline-none focus:border-prana-500"
         />
       </div>
@@ -468,30 +415,22 @@ function IngredientChecker() {
         disabled={loading}
         className="mt-4 rounded-full bg-prana-600 px-5 py-2.5 font-medium text-white hover:bg-prana-500 disabled:opacity-50"
       >
-        {loading ? "Checking…" : "Check compatibility"}
+        {loading ? "Checking…" : "Can I use these together?"}
       </button>
 
       {result && (
         <div className="mt-5">
-          <p className="text-sm text-prana-100/70">
-            Detected actives:{" "}
-            <span className="text-prana-100">
-              {result.detectedActives.join(", ") || "none recognised"}
-            </span>
-          </p>
           {result.issues.length === 0 ? (
-            <p className="mt-3 rounded-lg border border-prana-500/40 bg-prana-500/10 p-3 text-sm text-prana-100">
-              No clashes detected — safe to layer.
+            <p className="rounded-lg border border-prana-500/40 bg-prana-500/10 p-3 text-sm text-prana-100">
+              👍 You&apos;re good — these two are safe to use together.
             </p>
           ) : (
-            <div className="mt-3 space-y-2">
+            <div className="space-y-2">
+              <p className="text-sm text-prana-100/70">Heads up — a couple of things to know:</p>
               {result.issues.map((i, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3"
-                >
+                <div key={idx} className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
                   <p className="text-sm font-medium text-amber-200">
-                    {i.ingredientA} × {i.ingredientB} — {i.severity.replace(/_/g, " ")}
+                    {i.ingredientA} and {i.ingredientB}
                   </p>
                   <p className="mt-1 text-xs text-prana-100/70">{i.reason}</p>
                 </div>
@@ -504,7 +443,7 @@ function IngredientChecker() {
   );
 }
 
-/* ---------------- Refill planner ---------------- */
+/* ---------------- What am I about to run out of? ---------------- */
 interface RefillEstimate {
   name: string;
   daysRemaining: number;
@@ -512,89 +451,56 @@ interface RefillEstimate {
   links: { platform: string; label: string; url: string }[];
 }
 
-const DEMO_ITEMS = [
+interface LocalItem {
+  name: string;
+  packSize: number;
+  perDay: number;
+  offsetDays: number;
+}
+
+const DEFAULT_ITEMS: LocalItem[] = [
   { name: "probiotic capsules", packSize: 30, perDay: 1, offsetDays: 28 },
-  { name: "KDF shower filter cartridge", packSize: 90, perDay: 1, offsetDays: 28 },
+  { name: "water filter cartridge", packSize: 90, perDay: 1, offsetDays: 28 },
 ];
 
 function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 }
 
-function RefillPlanner({ userId }: { userId: string | null }) {
+function RefillPlanner() {
+  const [items, setItems] = useState<LocalItem[]>(DEFAULT_ITEMS);
   const [estimates, setEstimates] = useState<RefillEstimate[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<InventoryRow[]>([]);
-  const [form, setForm] = useState({
-    name: "",
-    packSize: 30,
-    perDay: 1,
-    startedOn: isoDaysAgo(0),
-  });
+  const [form, setForm] = useState({ name: "", packSize: 30, perDay: 1 });
 
-  const refreshItems = useCallback(async () => {
-    if (!userId) {
-      setItems([]);
-      return;
-    }
-    try {
-      setItems(await listInventory());
-    } catch {
-      /* ignore */
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    refreshItems();
-  }, [refreshItems]);
-
-  async function addItem(e: React.FormEvent) {
+  function addItem(e: React.FormEvent) {
     e.preventDefault();
-    if (!userId || !form.name.trim()) return;
-    try {
-      await addInventory(userId, {
-        name: form.name.trim(),
-        pack_size: Number(form.packSize),
-        per_day: Number(form.perDay),
-        started_on: form.startedOn,
-      });
-      setForm({ name: "", packSize: 30, perDay: 1, startedOn: isoDaysAgo(0) });
-      await refreshItems();
-    } catch {
-      /* ignore */
-    }
+    if (!form.name.trim()) return;
+    setItems((prev) => [
+      ...prev,
+      { name: form.name.trim(), packSize: Number(form.packSize), perDay: Number(form.perDay), offsetDays: 0 },
+    ]);
+    setForm({ name: "", packSize: 30, perDay: 1 });
   }
 
-  async function removeItem(id: string) {
-    try {
-      await deleteInventory(id);
-      await refreshItems();
-    } catch {
-      /* ignore */
-    }
+  function removeItem(idx: number) {
+    setItems((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function plan() {
     setLoading(true);
-    const payloadItems =
-      userId && items.length > 0
-        ? items.map((i) => ({
-            name: i.name,
-            packSize: i.pack_size,
-            perDay: i.per_day,
-            startedOn: i.started_on,
-          }))
-        : DEMO_ITEMS.map((d) => ({
-            name: d.name,
-            packSize: d.packSize,
-            perDay: d.perDay,
-            startedOn: isoDaysAgo(d.offsetDays),
-          }));
     try {
       const res = await fetch("/api/refill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: payloadItems }),
+        body: JSON.stringify({
+          items: items.map((d) => ({
+            name: d.name,
+            packSize: d.packSize,
+            perDay: d.perDay,
+            startedOn: isoDaysAgo(d.offsetDays),
+          })),
+        }),
       });
       const json = await res.json();
       setEstimates(json.estimates ?? []);
@@ -605,64 +511,49 @@ function RefillPlanner({ userId }: { userId: string | null }) {
 
   return (
     <section className="mt-6 rounded-2xl border border-prana-900 bg-prana-900/20 p-6">
-      <h2 className="text-xl font-semibold text-prana-50">
-        4 · One-tap refills
-      </h2>
+      <h2 className="text-xl font-semibold text-prana-50">What am I about to run out of?</h2>
       <p className="mt-1 text-sm text-prana-100/70">
-        We track depletion and deep-link a pre-filled cart into quick commerce
-        before you run out.{" "}
-        {userId
-          ? "Add the products you use and we'll watch them for you."
-          : "Sign in to save your own products; meanwhile this uses a sample box."}
+        Add the things you use daily — supplements, filter cartridges, anything.
+        We&apos;ll work out when they&apos;ll finish and give you a one-tap
+        reorder before they do. We sell nothing; this is just to save you the
+        bother of remembering.
       </p>
 
-      {userId && (
-        <form onSubmit={addItem} className="mt-4 grid gap-2 sm:grid-cols-5">
-          <input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Product name"
-            className="sm:col-span-2 rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-sm text-prana-50 outline-none focus:border-prana-500"
-          />
-          <input
-            type="number"
-            min={1}
-            value={form.packSize}
-            onChange={(e) => setForm({ ...form, packSize: Number(e.target.value) })}
-            placeholder="Pack size"
-            className="rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-sm text-prana-50 outline-none focus:border-prana-500"
-          />
-          <input
-            type="number"
-            min={0.1}
-            step={0.1}
-            value={form.perDay}
-            onChange={(e) => setForm({ ...form, perDay: Number(e.target.value) })}
-            placeholder="Per day"
-            className="rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-sm text-prana-50 outline-none focus:border-prana-500"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-prana-600 px-3 py-2 text-sm font-medium text-white hover:bg-prana-500"
-          >
-            Add
-          </button>
-        </form>
-      )}
+      <form onSubmit={addItem} className="mt-4 grid gap-2 sm:grid-cols-5">
+        <input
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="What is it?"
+          className="sm:col-span-2 rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-sm text-prana-50 outline-none focus:border-prana-500"
+        />
+        <input
+          type="number"
+          min={1}
+          value={form.packSize}
+          onChange={(e) => setForm({ ...form, packSize: Number(e.target.value) })}
+          placeholder="How many in a pack?"
+          className="rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-sm text-prana-50 outline-none focus:border-prana-500"
+        />
+        <input
+          type="number"
+          min={0.1}
+          step={0.1}
+          value={form.perDay}
+          onChange={(e) => setForm({ ...form, perDay: Number(e.target.value) })}
+          placeholder="Used per day"
+          className="rounded-lg border border-prana-900 bg-black/30 px-3 py-2 text-sm text-prana-50 outline-none focus:border-prana-500"
+        />
+        <button type="submit" className="rounded-lg bg-prana-600 px-3 py-2 text-sm font-medium text-white hover:bg-prana-500">
+          Add
+        </button>
+      </form>
 
-      {userId && items.length > 0 && (
+      {items.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {items.map((i) => (
-            <span
-              key={i.id}
-              className="flex items-center gap-2 rounded-full border border-prana-900 bg-black/20 px-3 py-1 text-xs text-prana-100/80"
-            >
-              {i.name} ({i.pack_size}/{i.per_day}/day)
-              <button
-                onClick={() => removeItem(i.id)}
-                className="text-prana-100/40 hover:text-red-300"
-                aria-label={`Remove ${i.name}`}
-              >
+          {items.map((i, idx) => (
+            <span key={idx} className="flex items-center gap-2 rounded-full border border-prana-900 bg-black/20 px-3 py-1 text-xs text-prana-100/80">
+              {i.name}
+              <button onClick={() => removeItem(idx)} className="text-prana-100/40 hover:text-red-300" aria-label={`Remove ${i.name}`}>
                 ✕
               </button>
             </span>
@@ -672,48 +563,29 @@ function RefillPlanner({ userId }: { userId: string | null }) {
 
       <button
         onClick={plan}
-        disabled={loading}
+        disabled={loading || items.length === 0}
         className="mt-4 rounded-full bg-prana-600 px-5 py-2.5 font-medium text-white hover:bg-prana-500 disabled:opacity-50"
       >
-        {loading ? "Checking…" : "Check my refills"}
+        {loading ? "Checking…" : "When will these run out?"}
       </button>
 
       {estimates && (
         <div className="mt-5 space-y-3">
           {estimates.length === 0 && (
-            <p className="text-sm text-prana-100/60">
-              No items to check yet — add a product above.
-            </p>
+            <p className="text-sm text-prana-100/60">Add something above and we&apos;ll track it for you.</p>
           )}
           {estimates.map((e) => (
-            <div
-              key={e.name}
-              className="rounded-lg border border-prana-900 bg-black/20 p-4"
-            >
+            <div key={e.name} className="rounded-lg border border-prana-900 bg-black/20 p-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium capitalize text-prana-50">
-                  {e.name}
-                </p>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs ${
-                    e.reorderNow
-                      ? "bg-red-500/20 text-red-300"
-                      : "bg-prana-500/20 text-prana-200"
-                  }`}
-                >
-                  {e.daysRemaining} days left
+                <p className="text-sm font-medium capitalize text-prana-50">{e.name}</p>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${e.reorderNow ? "bg-red-500/20 text-red-300" : "bg-prana-500/20 text-prana-200"}`}>
+                  {e.reorderNow ? "Running low" : `${e.daysRemaining} days left`}
                 </span>
               </div>
               {e.reorderNow && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {e.links.map((l) => (
-                    <a
-                      key={l.platform}
-                      href={l.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-full border border-prana-700 px-3 py-1 text-xs text-prana-100 hover:border-prana-500"
-                    >
+                    <a key={l.platform} href={l.url} target="_blank" rel="noreferrer" className="rounded-full border border-prana-700 px-3 py-1 text-xs text-prana-100 hover:border-prana-500">
                       {l.label}
                     </a>
                   ))}

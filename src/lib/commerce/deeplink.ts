@@ -1,27 +1,13 @@
 import type { QuickCommerceLink } from "@/lib/types";
 
 /**
- * Quick-commerce reorder via deep links.
+ * One-tap reorder via quick-commerce deep links.
  *
- * Per the product strategy, Prana Sync does NOT hold inventory or process
- * fulfilment. When a routine item runs low we build a search/cart deep link
- * into Blinkit / Zepto / Swiggy Instamart so the user checks out in 1 click on
- * the platform they already trust. Prana Sync earns affiliate commission.
- *
- * These are public search/deep-link URL patterns; an `AFFILIATE_TAG` env var is
- * appended when present so attribution works once an affiliate deal is signed.
+ * When something the user relies on (a water filter cartridge, a probiotic box)
+ * is about to run out, we open a ready-made search on the apps they already use
+ * — Blinkit, Zepto, Swiggy Instamart — so reordering is one tap. We sell
+ * nothing ourselves and take no commission; this is purely a convenience.
  */
-
-function affiliateTag(): string {
-  return process.env.AFFILIATE_TAG ?? "";
-}
-
-function withTag(url: string): string {
-  const tag = affiliateTag();
-  if (!tag) return url;
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}utm_source=pranasync&utm_medium=affiliate&ref=${encodeURIComponent(tag)}`;
-}
 
 /**
  * Build reorder deep links for a product across all supported platforms.
@@ -32,18 +18,18 @@ export function buildReorderLinks(query: string): QuickCommerceLink[] {
   return [
     {
       platform: "blinkit",
-      label: "Reorder on Blinkit",
-      url: withTag(`https://blinkit.com/s/?q=${q}`),
+      label: "Open in Blinkit",
+      url: `https://blinkit.com/s/?q=${q}`,
     },
     {
       platform: "zepto",
-      label: "Reorder on Zepto",
-      url: withTag(`https://www.zeptonow.com/search?query=${q}`),
+      label: "Open in Zepto",
+      url: `https://www.zeptonow.com/search?query=${q}`,
     },
     {
       platform: "instamart",
-      label: "Reorder on Swiggy Instamart",
-      url: withTag(`https://www.swiggy.com/instamart/search?custom_back=true&query=${q}`),
+      label: "Open in Swiggy Instamart",
+      url: `https://www.swiggy.com/instamart/search?custom_back=true&query=${q}`,
     },
   ];
 }

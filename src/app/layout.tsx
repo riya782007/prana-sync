@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Prana Sync — Your hyperlocal skin, hair & gut coach",
+  title: "Prana Sync — Free skin & hair help for your city",
   description:
-    "Brand-agnostic skin, hair and gut health coaching that adapts to your local water hardness and air quality. Built for urban India.",
+    "Find out why your skin and hair behave the way they do — based on your city\u2019s water and air — and the few simple things that fix it. Free, no sign-up.",
   manifest: "/manifest.json",
 };
 
